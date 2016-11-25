@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <windows.h>
 #include <shlwapi.h>
+#include <tlhelp32.h>
+#include <Psapi.h>
 
 // App
 #define APP_NAME            L"SuperF4"
@@ -41,12 +43,18 @@
 // Boring stuff
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define ENABLED() (keyhook)
+#define MAX_LINE_LENGTH 50
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 HINSTANCE g_hinst = NULL;
 HWND g_hwnd = NULL;
 UINT WM_TASKBARCREATED = 0;
 UINT WM_UPDATESETTINGS = 0;
 wchar_t inipath[MAX_PATH];
+
+//will not compile without on my machine
+typedef struct _TOKEN_ELEVATION { 
+  DWORD TokenIsElevated; 
+} TOKEN_ELEVATION, *PTOKEN_ELEVATION; 
 
 // Cool stuff
 HHOOK keyhook = NULL;
@@ -65,6 +73,7 @@ int elevated = 0;
 #include "include/error.c"
 #include "include/autostart.c"
 #include "include/tray.c"
+#include "include/textfile.c"
 
 // Entry point
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
@@ -96,19 +105,21 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
     }
   }
 
-  // Check if elevated if in >= Vista
-  OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
-  GetVersionEx(&vi);
-  vista = (vi.dwMajorVersion >= 6);
-  if (vista) {
-    HANDLE token;
-    TOKEN_ELEVATION elevation;
-    DWORD len;
-    if (OpenProcessToken(GetCurrentProcess(),TOKEN_READ,&token) && GetTokenInformation(token,TokenElevation,&elevation,sizeof(elevation),&len)) {
-      elevated = elevation.TokenIsElevated;
-    }
-  }
-
+    // Check if elevated if in >= Vista 
+  OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) }; 
+  GetVersionEx(&vi); 
+  vista = (vi.dwMajorVersion >= 6); 
+  if (vista) { 
+    HANDLE token; 
+    TOKEN_ELEVATION elevation; 
+    //will not compile without on my machine
+    TOKEN_INFORMATION_CLASS TokenElevation; 
+    DWORD len; 
+    if (OpenProcessToken(GetCurrentProcess(),TOKEN_READ,&token) && GetTokenInformation(token,TokenElevation,&elevation,sizeof(elevation),&len)) { 
+      elevated = elevation.TokenIsElevated; 
+    } 
+  } 
+  
   // Register some messages
   WM_UPDATESETTINGS = RegisterWindowMessage(L"UpdateSettings");
 
@@ -159,6 +170,62 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
   return msg.wParam;
 }
 
+DWORD *getProcessesByName(int lines, wchar_t** processNames, int* arrSize)
+{
+    *arrSize = lines;
+    DWORD* arr = calloc(lines, sizeof(DWORD));
+
+    if (arr == NULL)
+    {
+        Error(L"could not allocate memory!", L"malloc", GetLastError());
+    }
+
+    int i;
+    int currentSize = 0;
+    for (i = 0; i < lines; ++i)
+    {
+      PROCESSENTRY32 pe;
+      HANDLE handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+      pe.dwSize = sizeof(PROCESSENTRY32);
+
+      if (!Process32First(handle, &pe)) {
+          CloseHandle(handle);
+          return arr;
+      }
+
+      do {
+        if (!lstrcmpi(pe.szExeFile, processNames[i])) {
+            if(currentSize == (*arrSize)) {
+                *arrSize = *arrSize * 2;
+                DWORD * temp = realloc(arr, *arrSize * sizeof(DWORD));
+                if (temp == NULL) {
+                  Error(L"could not reallocate memory!", L"realloc", GetLastError());
+                } else  {
+                  arr = temp;
+                }
+            }
+
+            arr[currentSize++] = pe.th32ProcessID;
+        }
+      } while (Process32Next(handle, &pe));
+
+      CloseHandle(handle);
+    }
+
+    return arr;
+}
+
+void freeMemory(int lines, wchar_t** processNames, DWORD* disabledPids) {
+    int i;
+    for(i = 0; i < lines; i++)
+      free(processNames[i]);
+
+    free(processNames);
+
+    if (disabledPids != NULL)
+      free(disabledPids);
+}
+
 void Kill(HWND hwnd) {
   // To prevent overkill
   if (killing) {
@@ -200,13 +267,45 @@ void Kill(HWND hwnd) {
   }
 
   // Open the process
-  HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+  HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_TERMINATE, FALSE, pid);
   if (process == NULL) {
     #ifdef DEBUG
     Error(L"OpenProcess()", L"Kill()", GetLastError());
     #endif
     return;
   }
+ 
+  int arrSize;
+  wchar_t** processNames = malloc(MAX_LINE_LENGTH * sizeof(wchar_t**));
+  int lines = readTextFile(processNames);
+
+  if (lines > 0)
+  {
+      DWORD* disabledPids = getProcessesByName(lines, processNames, &arrSize);
+
+      if(disabledPids != NULL) {
+        int i;
+        for (i = 0; i < arrSize; i++) {
+          if (disabledPids[i] == pid)
+          {
+              freeMemory(lines, processNames, disabledPids);
+              CloseHandle(process);
+              if (SeDebugPrivilege) {
+                tkp.Privileges[0].Attributes = 0;
+                AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, NULL, 0);
+                CloseHandle(hToken);
+              }
+              return;
+          }
+        }
+      }
+
+      freeMemory(lines, processNames, disabledPids);
+  } else {
+      freeMemory(lines, processNames, NULL);
+  }
+
+  showKillMessage(process);
 
   // Terminate process
   if (TerminateProcess(process,1) == 0) {

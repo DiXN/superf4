@@ -24,7 +24,7 @@ int InitTray() {
   // Create icondata
   tray.cbSize = sizeof(NOTIFYICONDATA);
   tray.uID = 0;
-  tray.uFlags = NIF_MESSAGE|NIF_ICON|NIF_TIP;
+  tray.uFlags = NIF_INFO|NIF_MESSAGE|NIF_ICON|NIF_TIP;
   tray.hWnd = g_hwnd;
   tray.uCallbackMessage = WM_TRAY;
 
@@ -37,7 +37,7 @@ int InitTray() {
 int UpdateTray() {
   wcsncpy(tray.szTip, (ENABLED() && elevated?l10n.tray_elevated:ENABLED()?l10n.tray_enabled:l10n.tray_disabled), ARRAY_SIZE(tray.szTip));
   tray.hIcon = icon[ENABLED()?1:0];
-
+  tray.uFlags = NIF_MESSAGE|NIF_ICON|NIF_TIP;
   // Try until it succeeds, sleep 100 ms between each attempt
   while (Shell_NotifyIcon((tray_added?NIM_MODIFY:NIM_ADD),&tray) == FALSE) {
     Sleep(100);
@@ -61,6 +61,25 @@ int RemoveTray() {
   // Success
   tray_added = 0;
   return 0;
+}
+
+void showKillMessage(HANDLE process) {
+  wchar_t szProcessName[128] = L"<unknown>";
+  HMODULE hMod;
+  DWORD cbNeeded;
+  
+  if (EnumProcessModules(process, &hMod, sizeof(hMod), &cbNeeded))
+  {
+     GetModuleBaseName(process, hMod, szProcessName, sizeof(szProcessName)/sizeof(wchar_t));
+  }
+
+  wchar_t output[256];
+  wcscpy(output, L"killed: ");
+  wcscat(output, szProcessName);
+  tray.uFlags = NIF_INFO|NIF_MESSAGE|NIF_ICON|NIF_TIP;
+  wcscpy(tray.szInfo, output);
+  tray.uTimeout = 3000;
+  Shell_NotifyIcon(NIM_MODIFY, &tray);
 }
 
 void ShowContextMenu(HWND hwnd) {
