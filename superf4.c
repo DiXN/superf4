@@ -170,15 +170,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
   return msg.wParam;
 }
 
-DWORD *getProcessesByName(int lines, wchar_t** processNames, int* arrSize)
-{
+DWORD *getProcessesByName(int lines, wchar_t** processNames, int* arrSize) {
     *arrSize = lines;
     DWORD* arr = calloc(lines, sizeof(DWORD));
 
     if (arr == NULL)
-    {
         Error(L"could not allocate memory!", L"malloc", GetLastError());
-    }
 
     int i;
     int currentSize = 0;

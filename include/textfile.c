@@ -22,7 +22,12 @@ wchar_t* trimWhitespace(wchar_t* str)
 
 int readTextFile(wchar_t** lines) {
 
-    FILE *fp = fopen("disabledApps.txt", "r");
+    //get absolute path in case of autostart
+    wchar_t txtPath[MAX_PATH];
+    GetModuleFileName(NULL, txtPath, ARRAY_SIZE(txtPath));
+    PathRemoveFileSpec(txtPath);
+    wcscat(txtPath, L"\\disabledApps.txt");
+    FILE *fp = _wfopen(txtPath, L"r");
 
     int i = 0;
 
