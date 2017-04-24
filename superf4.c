@@ -71,6 +71,7 @@ int superkill = 0;
 int killing = 0; // Variable to prevent overkill
 int vista = 0;
 int elevated = 0;
+int message = 0;
 
 // Include stuff
 #include "localization/strings.h"
@@ -163,6 +164,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
   GetPrivateProfileString(L"General", L"TimerCheck", L"0", txt, ARRAY_SIZE(txt), inipath);
   if (_wtoi(txt)) {
     SetTimer(g_hwnd, CHECKTIMER, CHECKINTERVAL, NULL);
+  }
+
+  // MessageCheck
+  GetPrivateProfileString(L"General", L"ShowKillMessage", L"0", txt, ARRAY_SIZE(txt), inipath);
+  if (_wtoi(txt)) {
+    message = 1;
   }
 
   // Message loop
@@ -306,7 +313,9 @@ void Kill(HWND hwnd) {
       freeMemory(lines, processNames, NULL);
   }
 
-  showKillMessage(process);
+  if (message) {
+    showKillMessage(process);
+  }
 
   // Terminate process
   if (TerminateProcess(process,1) == 0) {

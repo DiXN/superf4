@@ -61,7 +61,7 @@ int RemoveTray() {
 }
 
 void showKillMessage(HANDLE process) {
-  wchar_t szProcessName[128] = L"<unknown>";
+  wchar_t szProcessName[128] = L"can not get process info.";
   HMODULE hMod;
   DWORD cbNeeded;
   

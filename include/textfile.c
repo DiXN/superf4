@@ -35,7 +35,7 @@ int readTextFile(wchar_t** lines) {
         return i;
 
     while(!feof(stdin)) {
-      lines[i] =  malloc(LINE_LENGTH * sizeof(wchar_t*));
+      lines[i] = malloc(LINE_LENGTH * sizeof(wchar_t*));
       if (fgetws(lines[i], LINE_LENGTH, fp) == NULL) {
         free(lines[i]);
         break;
