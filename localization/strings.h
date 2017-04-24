@@ -24,6 +24,7 @@ struct strings {
     wchar_t *elevated;
     wchar_t *xkill;
     wchar_t *exit;
+    wchar_t *ini;
   } menu;
 
   wchar_t *unhook_error;
@@ -44,6 +45,7 @@ struct strings {
     L"Elevated",
     L"xkill",
     L"Exit",
+    L"Open ini",
   },
   L"There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.",
 };

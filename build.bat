@@ -28,6 +28,13 @@ if "%1" == "all" (
     if not exist "bin/x64/SuperF4.exe". exit /b
   )
 
+  echo Building installer
+	if "%2" == "x64" (
+	  makensis /V2 /Dx64 installer.nsi
+	) else (
+	  makensis /V2 installer.nsi
+	)
+
 ) else if "%1" == "x64" (
   %prefix64%windres -o bin/x64/superf4.o include/superf4.rc
   %prefix64%gcc -o SuperF4.exe superf4.c bin/x64/superf4.o -mwindows -lshlwapi -lpsapi -O2 -g -DDEBUG

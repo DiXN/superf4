@@ -18,6 +18,7 @@
 #include <shlwapi.h>
 #include <tlhelp32.h>
 #include <Psapi.h>
+#include <shellapi.h>
 
 // App
 #define APP_NAME            L"SuperF4"
@@ -35,9 +36,10 @@
 #define SWM_TIMERCHECK_ON         WM_APP+7
 #define SWM_TIMERCHECK_OFF        WM_APP+8
 #define SWM_WEBSITE               WM_APP+9
-#define SWM_XKILL                 WM_APP+10
-#define SWM_EXIT                  WM_APP+11
-#define CHECKTIMER                WM_APP+12
+#define SWM_INI                   WM_APP+10
+#define SWM_XKILL                 WM_APP+11
+#define SWM_EXIT                  WM_APP+12
+#define CHECKTIMER                WM_APP+13
 
 
 // Boring stuff
@@ -72,6 +74,7 @@ int killing = 0; // Variable to prevent overkill
 int vista = 0;
 int elevated = 0;
 int message = 0;
+int disableTray = 0;
 
 // Include stuff
 #include "localization/strings.h"
@@ -152,6 +155,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
   RegisterClassEx(&wnd);
   g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW|WS_EX_TOPMOST|WS_EX_LAYERED, wnd.lpszClassName, NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
   SetLayeredWindowAttributes(g_hwnd, 0, 1, LWA_ALPHA); // Almost transparent
+
+  // TrayCheck
+  GetPrivateProfileString(L"General", L"DisableTray", L"0", txt, ARRAY_SIZE(txt), inipath);
+  if (_wtoi(txt)) {
+    disableTray = 1;
+  }
 
   // Tray icon
   InitTray();
@@ -654,6 +663,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     else if (wmId == SWM_EXIT) {
       DestroyWindow(hwnd);
+    }
+    else if(wmId == SWM_INI) {
+      ShellExecute(NULL, NULL, inipath, NULL, NULL, SW_SHOWNORMAL);
     }
   }
   else if (msg == WM_DESTROY) {
